@@ -6,6 +6,7 @@ import {
   SettingOutlined,
 } from "@ant-design/icons";
 import tokenlist from "../tokenList.json";
+import axios from "axios";
 
 function Swap() {
   const [slippage, setSlippage] = useState(2.5);
@@ -15,6 +16,7 @@ function Swap() {
   const [tokenTwo, setTokenTwo] = useState(tokenlist[11]);
   const [isOpen, setIsOpen] = useState(false);
   const [changeToken, setChangeToken] = useState(1);
+  const [prices, setPrices] = useState(null);
 
   function handleSlippageChange(e) {
     setSlippage(e.target.value);
@@ -22,11 +24,20 @@ function Swap() {
 
   function changeAmount(e) {
     setTokenOneAmount(e.target.value);
+    if (e.target.value && prices) {
+      setTokenTwoAmount((e.target.value * prices.ratio).toFixed(2));
+    } else {
+      setTokenTwoAmount(null);
+    }
   }
 
   function switchTokens() {
+    setPrices(null);
+    setTokenOneAmount(null);
+    setTokenTwoAmount(null);
     setTokenOne(tokenTwo);
     setTokenTwo(tokenOne);
+    fetchPrices(tokenTwo.address, tokenOne.address);
   }
 
   function openModal(asset) {
@@ -35,13 +46,33 @@ function Swap() {
   }
 
   function modifyToken(index) {
+    setPrices(null);
+    setTokenOneAmount(null);
+    setTokenTwoAmount(null);
     if (changeToken === 1) {
       setTokenOne(tokenlist[index]);
+      fetchPrices(tokenlist[index].address, tokenTwo.address);
     } else {
       setTokenTwo(tokenlist[index]);
+      fetchPrices(tokenOne.address, tokenlist[index].address);
     }
     setIsOpen(false);
   }
+
+  async function fetchPrices(one, two) {
+    const res = await axios.get("http://localhost:3001/tokenPrice", {
+      params: {
+        addressOne: one,
+        addressTwo: two,
+      },
+    });
+    console.log(res.data);
+    setPrices(res.data);
+  }
+
+  useEffect(() => {
+    fetchPrices(tokenlist[0].address, tokenlist[11].address);
+  }, []);
 
   const settings = (
     <>
@@ -71,13 +102,13 @@ function Swap() {
                 className="tokenChoice"
                 key={index}
                 onClick={() => modifyToken(index)}
-                >
-                  <img src={token.img} alt={token.ticker} className="tokenLogo" />
-                  <div className="tokenChoiceNames">
-                    <div className="tokenName">{token.name}</div>
-                    <div className="tokenTicker">{token.ticker}</div>
-                  </div>
+              >
+                <img src={token.img} alt={token.ticker} className="tokenLogo" />
+                <div className="tokenChoiceNames">
+                  <div className="tokenName">{token.name}</div>
+                  <div className="tokenTicker">{token.ticker}</div>
                 </div>
+              </div>
             );
           })}
         </div>
@@ -99,6 +130,7 @@ function Swap() {
             placeholder="0"
             value={tokenOneAmount}
             onChange={changeAmount}
+            disabled={!prices}
           />
           <Input placeholder="0" value={tokenTwoAmount} disabled />
           <div className="switchButton" onClick={switchTokens}>
@@ -115,7 +147,9 @@ function Swap() {
             <DownOutlined />
           </div>
         </div>
-        <div className="swapButton" disabled={!tokenOneAmount}>Swap</div>
+        <div className="swapButton" disabled={!tokenOneAmount}>
+          Swap
+        </div>
       </div>
     </>
   );
